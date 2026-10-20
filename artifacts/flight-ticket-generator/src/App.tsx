@@ -73,10 +73,31 @@ const regions: Region[] = catalogData.regions.map(([code, abbreviation, name]) =
 }));
 const airports: Airport[] = catalogData.airports;
 const STORE_KEY = 'northstar-ticket-draft';
+const randomDigits = (length: number) => {
+  const values = new Uint8Array(length);
+  if (globalThis.crypto?.getRandomValues) {
+    globalThis.crypto.getRandomValues(values);
+  } else {
+    for (let index = 0; index < length; index += 1) {
+      values[index] = Math.floor(Math.random() * 256);
+    }
+  }
+  return Array.from(values, (value) => String(value % 10)).join('');
+};
+const generatedBookingReference = () => `DEMO-${randomDigits(6)}`;
+const generatedTicketNumber = () => `DEMO-${randomDigits(13)}`;
+const generatedPaymentReference = () =>
+  `DEMO-PAY-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${randomDigits(6)}`;
+const generatedFlightNumber = () => `DEMO-${randomDigits(4)}`;
+const generatedSeatNumber = () => {
+  const row = 1 + (Number(randomDigits(2)) % 36);
+  const seat = ['A', 'C', 'D', 'F', 'H', 'K'][Number(randomDigits(1)) % 6];
+  return `DEMO-${row}${seat}`;
+};
 const blankLeg = (): Leg => ({
   id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
   airline: '',
-  flightNo: '',
+  flightNo: generatedFlightNumber(),
   originState: '',
   originCity: '',
   origin: '',
@@ -91,16 +112,16 @@ const blankLeg = (): Leg => ({
   arriveTime: '',
   duration: '',
   layover: '',
-  seat: '',
+  seat: generatedSeatNumber(),
   cabin: 'Economy',
 });
 const initialDraft = (): Draft => ({
   agency: '',
-  bookingRef: '',
+  bookingRef: generatedBookingReference(),
   bookedDate: new Date().toISOString().slice(0, 10),
   logo: '',
   travelerName: '',
-  ticketNumber: '',
+  ticketNumber: generatedTicketNumber(),
   travelerType: 'Adult',
   requests: '',
   meal: '',
@@ -109,22 +130,42 @@ const initialDraft = (): Draft => ({
   paymentAmountPaid: '',
   paymentCurrency: 'USD',
   paymentMethod: '',
-  paymentReference: '',
+  paymentReference: generatedPaymentReference(),
   paymentDate: '',
   flightType: 'nonstop',
   segments: [blankLeg()],
 });
 const savedDraft = (): Draft => {
+  const defaults = initialDraft();
   try {
     const parsed = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
-    if (!parsed || typeof parsed !== 'object') return initialDraft();
+    if (!parsed || typeof parsed !== 'object') return defaults;
     const segments = Array.isArray(parsed.segments) && parsed.segments.length
-      ? parsed.segments.map((segment: Partial<Leg>) => ({ ...blankLeg(), ...segment }))
-      : [blankLeg()];
+      ? parsed.segments.map((segment: Partial<Leg>) => {
+        const generated = blankLeg();
+        const merged = { ...generated, ...segment };
+        return {
+          ...merged,
+          flightNo: typeof merged.flightNo === 'string' && merged.flightNo.trim()
+            ? merged.flightNo : generated.flightNo,
+          seat: typeof merged.seat === 'string' && merged.seat.trim()
+            ? merged.seat : generated.seat,
+        };
+      })
+      : defaults.segments;
     const flightType = parsed.flightType === 'connecting' || segments.length > 1 ? 'connecting' : 'nonstop';
-    return { ...initialDraft(), ...parsed, segments, flightType };
+    const merged = { ...defaults, ...parsed, segments, flightType };
+    return {
+      ...merged,
+      bookingRef: typeof parsed.bookingRef === 'string' && parsed.bookingRef.trim()
+        ? parsed.bookingRef : defaults.bookingRef,
+      ticketNumber: typeof parsed.ticketNumber === 'string' && parsed.ticketNumber.trim()
+        ? parsed.ticketNumber : defaults.ticketNumber,
+      paymentReference: typeof parsed.paymentReference === 'string' && parsed.paymentReference.trim()
+        ? parsed.paymentReference : defaults.paymentReference,
+    };
   } catch {
-    return initialDraft();
+    return defaults;
   }
 };
 
@@ -259,6 +300,20 @@ function App() {
     setDraft((current) => ({
       ...current,
       segments: current.segments.map((leg) => leg.id === id ? { ...leg, [key]: value } : leg),
+    }));
+    setErrors([]);
+  };
+  const regenerateIdentifiers = () => {
+    setDraft((current) => ({
+      ...current,
+      bookingRef: generatedBookingReference(),
+      ticketNumber: generatedTicketNumber(),
+      paymentReference: generatedPaymentReference(),
+      segments: current.segments.map((leg) => ({
+        ...leg,
+        flightNo: generatedFlightNumber(),
+        seat: generatedSeatNumber(),
+      })),
     }));
     setErrors([]);
   };
@@ -601,6 +656,7 @@ function App() {
           <p>Enter a booking once. Your customer-ready travel document follows along.</p></div>
         <div className="head-actions">
           <button className="btn" data-testid="button-fill-example" type="button" title="Fill with a complete sample booking" onClick={useExample}><RotateCcw size={14} /> Fill example</button>
+          <button className="btn" data-testid="button-regenerate-identifiers" type="button" title="Generate new sample booking, ticket, flight, seat, and payment references" onClick={regenerateIdentifiers}>Regenerate sample IDs</button>
           <button className="btn" data-testid="button-clear-draft" type="button" onClick={clearDraft}><Trash2 size={14} /> Clear draft</button>
           <div className="export-wrap">
             <button className="btn btn-primary" data-testid="button-export-ticket" type="button" aria-haspopup="true"
@@ -637,6 +693,7 @@ function App() {
                 <span className="help">PNG or JPG, max 3 MB</span>
               </div></div>
             </div>
+            <div className="inline-note"><strong>Sample IDs are generated automatically.</strong> Values marked DEMO are placeholders, not airline-issued reservations, tickets, seat assignments, or payment records.</div>
           </SectionCard>
           <SectionCard number="02" title="Flight itinerary" subtitle="Add each leg in travel order."
             action={draft.flightType === 'connecting' && <button className="btn btn-small" type="button" data-testid="button-add-connection" onClick={addConnection}><Plus size={13} /> Add connection</button>}>
@@ -740,6 +797,7 @@ function App() {
                       <tr className="traveler-extra"><td></td><td>Special service<br /><b>{draft.requests || 'None requested'}</b></td>
                         <td>Meal preference<br /><b>{draft.meal || 'Any meal'}</b></td><td>{draft.contactEmail || '—'}</td><td></td></tr></tbody></table>
                   <div className="warning traveler-warning"><b>Disclaimer:</b> Special requests are not guaranteed. Contact your airline to confirm they received your request.</div>
+                  <div className="warning traveler-warning"><b>Sample identifiers:</b> Generated DEMO values are placeholders, not airline-issued bookings, tickets, seat assignments, or payment records.</div>
                 </section>
                 <div className="updates"><strong>Flight Watcher</strong><span>For schedule changes and live status, check directly with your airline.</span></div>
                 <div className="page-number">Page 1 of 2</div>
@@ -758,6 +816,7 @@ function App() {
               <div className="transaction"><div><div className="transaction-label">Payment method</div><div className="transaction-value">{draft.paymentMethod || '—'}</div></div>
                 <div><div className="transaction-label">Payment date</div><div className="transaction-value">{prettyDate(draft.paymentDate)}</div></div>
                 <div className="payment-reference"><div className="transaction-label">Payment reference</div><div className="transaction-value">{draft.paymentReference || '—'}</div></div></div>
+              <div className="warning traveler-warning"><b>Payment is not processed.</b> This DEMO reference is a placeholder, not a payment-provider transaction.</div>
               <div className="page-number">Page 2 of 2</div>
             </div></article>
           </div></div>

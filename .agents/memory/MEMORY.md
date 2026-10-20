@@ -1,0 +1,1 @@
+- [Generated identifier labels](generated-identifier-labels.md) — Avoid adding DEMO labels to automatically generated IDs in this app.

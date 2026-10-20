@@ -1,7 +1,7 @@
 kind = "web"
 previewPath = "/"
 title = "Flight Ticket Generator"
-description = "Create branded flight confirmations with airport-aware itineraries, traveler and payment details, a live two-page ticket preview, and print-ready PDF and PNG export. Keep drafts in the browser."
+description = "Flight Ticket Generator helps you prepare flight confirmation documents with airport-aware itineraries, traveler and payment details, and PDF or PNG exports. Drafts save in your browser; bookings and payments are not processed."
 version = "1.0.0"
 id = "artifacts/flight-ticket-generator"
 router = "path"

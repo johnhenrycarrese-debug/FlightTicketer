@@ -648,8 +648,8 @@ function App() {
 
   return <div className="min-h-[100dvh]">
     <header className="topbar">
-      <div className="brand"><div className="brand-mark" aria-hidden="true">N</div><div>
-        <div className="brand-name">Northstar desk</div><div className="brand-sub">Travel confirmation builder</div></div></div>
+      <div className="brand"><div className="brand-mark" aria-hidden="true">F</div><div>
+        <div className="brand-name">Flight Ticket Generator</div><div className="brand-sub">Travel confirmation builder</div></div></div>
       <div className="save-status" aria-live="polite" data-testid="status-save">
         <span className={`save-dot ${saveState === 'saving' ? 'busy' : ''}`} />
         <span>{saveState === 'saving' ? 'Saving draft…' : saveState === 'error' ? 'Storage is full — draft not saved' : 'Draft saved on this device'}</span>
